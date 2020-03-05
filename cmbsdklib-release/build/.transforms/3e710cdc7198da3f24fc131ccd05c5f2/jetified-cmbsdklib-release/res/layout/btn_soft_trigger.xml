@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="70dp"
+    android:layout_height="70dp"
+    android:layout_alignWithParentIfMissing="true"
+    >
+
+    <com.cognex.dataman.sdk.CircleView
+        android:id="@+id/circleView"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:visibility="gone"
+        android:layout_centerInParent="true" />
+
+    <ImageButton
+        android:id="@+id/btnTrigger"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_centerInParent="true"
+        android:background="@android:color/transparent"
+        android:src="@drawable/btn_trigger_states" />
+</RelativeLayout>
