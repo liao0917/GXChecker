@@ -11,6 +11,8 @@ import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,6 +22,7 @@ import android.widget.SimpleAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.alibaba.fastjson.JSON;
 import com.cognex.dataman.sdk.CameraMode;
 import com.cognex.dataman.sdk.ConnectionState;
 import com.cognex.dataman.sdk.DataManDeviceClass;
@@ -30,9 +33,19 @@ import com.cognex.dataman.sdk.exceptions.CameraPermissionException;
 import com.cognex.mobile.barcode.sdk.ReadResult;
 import com.cognex.mobile.barcode.sdk.ReadResults;
 import com.cognex.mobile.barcode.sdk.ReaderDevice;
+import com.gxchecker.Entity.UggViewModel;
+import com.manateeworks.BarcodeScanner;
+import com.manateeworks.MWOverlay;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+import javax.net.ssl.HttpsURLConnection;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -52,6 +65,8 @@ public class ScanActivity extends AppCompatActivity implements
     ArrayList<HashMap<String, String>> scanResults;
     SimpleAdapter resultListAdapter;
     boolean availabilityListenerStarted = false;
+    private static final int TASK_COMPLETE=1;
+    private static final int TASK_FAILED=-1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -124,7 +139,60 @@ public class ScanActivity extends AppCompatActivity implements
                 createResultItem(subResult);
             }
         } else if (readResults.getCount() > 0) {
-            createResultItem(readResults.getResultAt(0));
+            ReadResult result = readResults.getResultAt(0);
+            if(result.getReadString()==""||result.getReadString()==null)
+                createResultItem(readResults.getResultAt(0));
+            else
+            {
+                final String resultString = result.getReadString();
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Message message=new Message();
+                        HttpsURLConnection Conn = null;
+                        try {
+                            URL url = new URL("https://www.gxprintmall.com.cn:8083/api/OrderViews/"+resultString);
+                            Conn = (HttpsURLConnection) url.openConnection();
+                            Conn.setReadTimeout(15000);
+                            Conn.setConnectTimeout(15000);
+                            Conn.setDoInput(true);
+//                            Conn.setDoOutput(true);
+                            Conn.setRequestMethod("GET");
+                            InputStream is = new BufferedInputStream(Conn.getInputStream());
+                            InputStreamReader reader = new InputStreamReader(is);
+                            BufferedReader buffereader = new BufferedReader(reader);
+                            StringBuffer buffer = new StringBuffer();
+                            String temp = null;
+                            while ((temp = buffereader.readLine()) != null) {
+                                //取水--如果不为空就一直取
+                                buffer.append(temp);
+                            }
+                            buffereader.close();//记得关闭
+                            reader.close();
+                            is.close();
+                            try {
+                                UggViewModel OrderView = JSON.parseObject(buffer.toString(), UggViewModel.class);
+                                Log.d("MineMsg",OrderView.toString());
+                                message.what = TASK_COMPLETE;
+                                message.obj = OrderView;
+                            }
+                            catch (Exception e)
+                            {
+                                Log.e("MineMsg","00:"+e.getMessage());
+                                message.what = TASK_FAILED;
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            e.printStackTrace();
+                            Log.e("MineMsg","11:"+e.getMessage());
+                            message.what = TASK_FAILED;
+                        }
+                        handler.sendMessage(message);
+                    }
+                }).start();
+
+            }
         }
 
         isScanning = false;
@@ -162,7 +230,7 @@ public class ScanActivity extends AppCompatActivity implements
         this.readerDevice = ReaderDevice.getPhoneCameraDevice(
                 this,
                 CameraMode.NO_AIMER,
-                PreviewOption.DEFAULTS,
+                PreviewOption.HIGH_RESOLUTION|PreviewOption.HIGH_FRAME_RATE,
                 layout);
         readerDevice.setReaderDeviceListener(this);
         connectToReaderDevice();
@@ -203,23 +271,23 @@ public class ScanActivity extends AppCompatActivity implements
         //---------------------------------------------------------------------------
         // Below are examples of sending DMCC commands and getting the response
         //---------------------------------------------------------------------------
-        readerDevice.getDataManSystem().sendCommand("GET DEVICE.TYPE", new DataManSystem.OnResponseReceivedListener() {
-            @Override
-            public void onResponseReceived(DataManSystem dataManSystem, DmccResponse response) {
-                if (response.getError() == null) {
-                    Log.d("Device type", response.getPayLoad());
-                }
-            }
-        });
+//        readerDevice.getDataManSystem().sendCommand("GET DEVICE.TYPE", new DataManSystem.OnResponseReceivedListener() {
+//            @Override
+//            public void onResponseReceived(DataManSystem dataManSystem, DmccResponse response) {
+//                if (response.getError() == null) {
+//                    Log.d("Device type", response.getPayLoad());
+//                }
+//            }
+//        });
 
-        readerDevice.getDataManSystem().sendCommand("GET DEVICE.FIRMWARE-VER", new DataManSystem.OnResponseReceivedListener() {
-            @Override
-            public void onResponseReceived(DataManSystem dataManSystem, DmccResponse response) {
-                if (response.getError() == null) {
-                    Log.d("Firmware version", response.getPayLoad());
-                }
-            }
-        });
+//        readerDevice.getDataManSystem().sendCommand("GET DEVICE.FIRMWARE-VER", new DataManSystem.OnResponseReceivedListener() {
+//            @Override
+//            public void onResponseReceived(DataManSystem dataManSystem, DmccResponse response) {
+//                if (response.getError() == null) {
+//                    Log.d("Firmware version", response.getPayLoad());
+//                }
+//            }
+//        });
 
         //---------------------------------------------------------------------------
         // We are going to explicitly turn off image results (although this is the
@@ -227,8 +295,8 @@ public class ScanActivity extends AppCompatActivity implements
         // scanner is not recommended unless your application needs the scanned
         // image--otherwise scanning performance can be impacted.
         //---------------------------------------------------------------------------
-        readerDevice.enableImage(true);
-        readerDevice.enableImageGraphics(true);
+        readerDevice.enableImage(false);
+        readerDevice.enableImageGraphics(false);
         //---------------------------------------------------------------------------
         // Device specific configuration examples
         //---------------------------------------------------------------------------
@@ -238,6 +306,15 @@ public class ScanActivity extends AppCompatActivity implements
             //---------------------------------------------------------------------------
             // Set the SDK's decoding effort to level 3
         readerDevice.getDataManSystem().sendCommand("SET DECODER.EFFORT 3");
+        readerDevice.getDataManSystem().sendCommand("SET FOCUS.FOCUSTIME 2");
+        readerDevice.getDataManSystem().sendCommand("SET DECODER.TARGET-DECODING ON");
+        readerDevice.getDataManSystem().sendCommand("SET DECODER.CENTERING-WINDOW 50 50 40 20");//设置对焦框大小和位置
+        MWOverlay.targetRectLineColor = Color.RED;
+//        readerDevice.getDataManSystem().sendCommand("SET DECODER.1D-SYMBOLORIENTATION 1");
+//        MWOverlay.targetRectLineWidth = 2;
+//        readerDevice.getDataManSystem().sendCommand("SET DECODER.ROI-PERCENT 10 80 10 80");//X W Y H
+//        MWOverlay.locationLineColor = Color.BLUE;
+//        MWOverlay.locationLineWidth = 6;
 
     }
 
@@ -260,14 +337,15 @@ public class ScanActivity extends AppCompatActivity implements
 
 //        btnScan.setText(btnScan.isEnabled() ? "START SCANNING" : "(NOT CONNECTED)");
     }
-    private void createResultItem(ReadResult result) {
+    private void createResultItem(final ReadResult result) {
         HashMap<String, String> item = new HashMap<String, String>();
         if (result.isGoodRead()) {
             item.put("resultText", result.getReadString());
-
             ReaderDevice.Symbology sym = result.getSymbology();
             if (sym != null)
+            {
                 item.put("resultType", result.getSymbology().getName());
+            }
             else
                 item.put("resultType", "UNKNOWN SYMBOLOGY");
         } else {
@@ -305,4 +383,107 @@ public class ScanActivity extends AppCompatActivity implements
             }
         }
     }
+
+    private Handler handler = new Handler(){
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what)
+            {
+                case TASK_COMPLETE:
+                    UggViewModel model = (UggViewModel)msg.obj;
+                    if(model.getUgg()==null)
+                    {
+                        HashMap<String, String> item = new HashMap<String, String>();
+                        item.put("resultText", "NO Result Found");
+                        item.put("resultType", "");
+                        scanResults.add(item);
+                    }
+                    else
+                    {
+                        HashMap<String, String> item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getDeckersPo());
+                        item.put("resultType", "DeckersPo");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getPo());
+                        item.put("resultType", "Factory Po");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getId());
+                        item.put("resultType", "SN");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getSku());
+                        item.put("resultType", "Sku");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getShipId());
+                        item.put("resultType", "Ship To-ID");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getGender());
+                        item.put("resultType", "Gender");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getStyle_Name());
+                        item.put("resultType", "Style Name");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getColor());
+                        item.put("resultType", "Color");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getSize());
+                        item.put("resultType", "Size");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getPo_Total_Qty());
+                        item.put("resultType", "Po Total Qty");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getFactory());
+                        item.put("resultType", "Factory");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getPo_Create_Date());
+                        item.put("resultType", "Po Create Date");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getBuy_Season());
+                        item.put("resultType", "Buy Season");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getBuy_Month());
+                        item.put("resultType", "Buy Month");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getBrand());
+                        item.put("resultType", "Brand");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getLoss());
+                        item.put("resultType", "Loss");
+                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", model.getUgg().getRPrint());
+                        item.put("resultType", "Actual printing quantity");
+                        scanResults.add(item);
+//                        item = new HashMap<String, String>();
+//                        item.put("resultText", model.getUgg().);
+//                        item.put("resultType", "Original country");
+//                        scanResults.add(item);
+                        item = new HashMap<String, String>();
+                        item.put("resultText", "");
+                        item.put("resultType", "");
+                        scanResults.add(item);
+                    }
+                    resultListAdapter.notifyDataSetChanged();
+                    break;
+                case TASK_FAILED:
+                    break;
+                default:
+                    super.handleMessage(msg);
+            }
+        }
+    };
 }

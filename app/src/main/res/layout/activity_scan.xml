@@ -10,7 +10,8 @@
     <ListView
         android:id="@+id/list_result"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"></ListView>
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toTopOf="@id/btn_scan"></ListView>
 
     <Button
         android:layout_width="match_parent"
@@ -20,7 +21,7 @@
         android:padding="20dp"
         android:layout_margin="10dp"
         android:gravity="center"
-        android:background="@color/colorAccent"
+        android:background="#80AFEEEE"
         app:layout_constraintBottom_toBottomOf="@+id/ScanWindow"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
