@@ -145,53 +145,10 @@ public class ScanActivity extends AppCompatActivity implements
             else
             {
                 final String resultString = result.getReadString();
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Message message=new Message();
-                        HttpsURLConnection Conn = null;
-                        try {
-                            URL url = new URL("https://www.gxprintmall.com.cn:8083/api/OrderViews/"+resultString);
-                            Conn = (HttpsURLConnection) url.openConnection();
-                            Conn.setReadTimeout(15000);
-                            Conn.setConnectTimeout(15000);
-                            Conn.setDoInput(true);
-//                            Conn.setDoOutput(true);
-                            Conn.setRequestMethod("GET");
-                            InputStream is = new BufferedInputStream(Conn.getInputStream());
-                            InputStreamReader reader = new InputStreamReader(is);
-                            BufferedReader buffereader = new BufferedReader(reader);
-                            StringBuffer buffer = new StringBuffer();
-                            String temp = null;
-                            while ((temp = buffereader.readLine()) != null) {
-                                //取水--如果不为空就一直取
-                                buffer.append(temp);
-                            }
-                            buffereader.close();//记得关闭
-                            reader.close();
-                            is.close();
-                            try {
-                                UggViewModel OrderView = JSON.parseObject(buffer.toString(), UggViewModel.class);
-                                Log.d("MineMsg",OrderView.toString());
-                                message.what = TASK_COMPLETE;
-                                message.obj = OrderView;
-                            }
-                            catch (Exception e)
-                            {
-                                Log.e("MineMsg","00:"+e.getMessage());
-                                message.what = TASK_FAILED;
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            e.printStackTrace();
-                            Log.e("MineMsg","11:"+e.getMessage());
-                            message.what = TASK_FAILED;
-                        }
-                        handler.sendMessage(message);
-                    }
-                }).start();
-
+                HashMap<String, String> item = new HashMap<String, String>();
+                item.put("resultText", resultString);
+                item.put("resultType", "");
+                scanResults.add(item);
             }
         }
 
