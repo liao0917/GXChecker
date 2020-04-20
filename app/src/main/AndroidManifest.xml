@@ -29,7 +29,7 @@
 
         <meta-data
             android:name="MX_MOBILE_LICENSE"
-            android:value="LxvVeLMa8x/A1X7H1v731fOSl07gjHvnxC6d28b4v9Q=" />
+            android:value="" />
     </application>
 
 </manifest>
