@@ -1,4 +1,4 @@
-package com.gxchecker.Entity;
+package com.GXChecker.Entity;
 
 public class UggData {
     private String Sku ;

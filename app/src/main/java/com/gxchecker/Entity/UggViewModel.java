@@ -1,4 +1,4 @@
-package com.gxchecker.Entity;
+package com.GXChecker.Entity;
 
 import java.util.List;
 
